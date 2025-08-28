@@ -15,10 +15,10 @@ interface ConversationMessage {
 
 const VoiceConversation: React.FC = () => {
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
-  const [currentUserInput, setCurrentUserInput] = useState('');
   const [currentAIResponse, setCurrentAIResponse] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [autoPlayResponses, setAutoPlayResponses] = useState(true);
+  const [lastProcessedInput, setLastProcessedInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -40,8 +40,15 @@ const VoiceConversation: React.FC = () => {
 
   const handleUserTranscript = async (transcript: string) => {
     if (!transcript.trim()) return;
+    
+    // Just store the transcript, don't auto-generate response
+    // User will click Answer button to get AI response
+  };
 
-    setCurrentUserInput(transcript);
+  const handleAnswerRequest = async (transcript: string) => {
+    if (!transcript.trim() || isProcessing || transcript === lastProcessedInput) return;
+
+    setLastProcessedInput(transcript);
     setIsProcessing(true);
 
     // Add user message
@@ -74,6 +81,7 @@ const VoiceConversation: React.FC = () => {
         emotion: 'gentle',
         voiceStyle: 'gentle'
       });
+      setCurrentAIResponse("I'm sorry, I encountered an issue generating a response. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -81,8 +89,9 @@ const VoiceConversation: React.FC = () => {
 
   const clearConversation = () => {
     setMessages([]);
-    setCurrentUserInput('');
     setCurrentAIResponse('');
+    setLastProcessedInput('');
+    setIsProcessing(false);
   };
 
   const exportConversation = () => {
@@ -148,7 +157,10 @@ const VoiceConversation: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column: Voice Input */}
           <div className="space-y-6">
-            <VoiceInput onTranscriptChange={handleUserTranscript} />
+            <VoiceInput 
+              onTranscriptChange={handleUserTranscript} 
+              onAnswerRequest={handleAnswerRequest}
+            />
             
             {/* Conversation History */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
@@ -219,21 +231,36 @@ const VoiceConversation: React.FC = () => {
           </div>
         </div>
 
+        {/* Fix Alert */}
+        <div className="mt-8 max-w-4xl mx-auto bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs">✓</span>
+            </div>
+            <h4 className="font-semibold text-green-800">Enhanced Voice Control!</h4>
+          </div>
+          <p className="text-sm text-green-700">
+            • <strong>Auto-Stop:</strong> Voice input automatically stops after 3 seconds of silence<br/>
+            • <strong>Manual Control:</strong> Click "Answer" button to get AI response when ready<br/>
+            • <strong>Voice Output:</strong> AI responses are automatically spoken aloud
+          </p>
+        </div>
+
         {/* Instructions */}
-        <div className="mt-8 max-w-4xl mx-auto bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="font-semibold text-blue-800 mb-3">💡 Tips for Best Experience:</h3>
+        <div className="mt-4 max-w-4xl mx-auto bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 className="font-semibold text-blue-800 mb-3">💡 How to Use:</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
             <ul className="space-y-2">
-              <li>• Speak clearly and at a normal pace</li>
-              <li>• Try different speaking styles (friendly, professional, excited)</li>
-              <li>• Ask questions or make statements</li>
-              <li>• Use greetings like "Hello" or "Hi"</li>
+              <li>• 🎤 Click microphone to start recording</li>
+              <li>• 🗣️ Speak your question or statement</li>
+              <li>• ⏸️ Wait 3 seconds - recording stops automatically</li>
+              <li>• 🤖 Click "Answer" button to get AI response</li>
             </ul>
             <ul className="space-y-2">
-              <li>• The AI will adapt its voice style to your mood</li>
-              <li>• You can customize the AI's voice in the settings</li>
-              <li>• Toggle auto-play to control when responses are spoken</li>
-              <li>• Export your conversation for later review</li>
+              <li>• 🔊 AI will speak the response automatically</li>
+              <li>• ⚙️ Customize voice settings for different styles</li>
+              <li>• 💾 Export your conversation history</li>
+              <li>• 🔄 Use "Clear" to start fresh conversation</li>
             </ul>
           </div>
         </div>

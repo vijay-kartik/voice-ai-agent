@@ -5,13 +5,14 @@ import WaveformVisualization from './WaveformVisualization';
 
 interface VoiceInputProps {
   onTranscriptChange?: (transcript: string) => void;
+  onAnswerRequest?: (transcript: string) => void;
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange, onAnswerRequest }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
-  
+  const [silenceTimer, setSilenceTimer] = useState<NodeJS.Timeout | null>(null);
   const { speak } = useSpeechSynthesis();
   
   const {
@@ -22,22 +23,62 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange }) => {
   } = useSpeechRecognition({
     onResult: (result: string) => {
       setTranscript(result);
-      if (onTranscriptChange) {
-        onTranscriptChange(result);
+      
+      // Clear any existing silence timer
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+        setSilenceTimer(null);
       }
+      
+      // Start new silence timer - will auto-stop after 3 seconds of silence
+      const newTimer = setTimeout(() => {
+        handleAutoStop();
+      }, 3000); // 3 seconds of silence
+      
+      setSilenceTimer(newTimer);
     },
     onError: (error: any) => {
       console.error('Speech recognition error:', error);
-      setIsListening(false);
+      cleanup();
     },
     onEnd: () => {
-      setIsListening(false);
+      cleanup();
     }
   });
 
   useEffect(() => {
     setIsListening(listening);
   }, [listening]);
+
+  // Cleanup function to clear timers and reset states
+  const cleanup = () => {
+    setIsListening(false);
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
+      setSilenceTimer(null);
+    }
+  };
+
+  // Auto-stop function when silence is detected
+  const handleAutoStop = () => {
+    if (transcript.trim()) {
+      // Only trigger response if we have meaningful content
+      if (onTranscriptChange) {
+        onTranscriptChange(transcript);
+      }
+    }
+    stop();
+    cleanup();
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+      }
+    };
+  }, [silenceTimer]);
 
   const handleStartListening = () => {
     if (supported) {
@@ -70,6 +111,12 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange }) => {
   const handleSpeak = () => {
     if (transcript) {
       speak({ text: transcript });
+    }
+  };
+
+  const handleAnswerRequest = () => {
+    if (transcript.trim() && onAnswerRequest) {
+      onAnswerRequest(transcript);
     }
   };
 
@@ -123,8 +170,13 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange }) => {
       {/* Status */}
       <div className="text-center mb-4">
         <p className={`font-medium ${isListening ? 'text-red-600' : 'text-gray-500'}`}>
-          {isListening ? 'Listening... Speak now!' : 'Ready to listen'}
+          {isListening ? 'Listening... Speak now! (Auto-stops after 3s of silence)' : 'Ready to listen'}
         </p>
+        {isListening && (
+          <p className="text-xs text-gray-500 mt-1">
+            Microphone will automatically stop after 3 seconds of silence
+          </p>
+        )}
       </div>
 
       {/* Waveform Visualization */}
@@ -166,6 +218,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange }) => {
         >
           <Volume2 className="w-4 h-4" />
           Speak
+        </button>
+        
+        <button
+          onClick={handleAnswerRequest}
+          disabled={!transcript}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors duration-200"
+        >
+          🤖 Answer
         </button>
       </div>
 

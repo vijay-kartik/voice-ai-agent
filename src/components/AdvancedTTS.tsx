@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Volume2, VolumeX, Settings, Play, Pause } from 'lucide-react';
 
 interface VoicePreset {
@@ -33,6 +33,7 @@ const AdvancedTTS: React.FC<AdvancedTTSProps> = ({
   const [pitch, setPitch] = useState(1.0);
   const [volume, setVolume] = useState(1.0);
   const [selectedPreset, setSelectedPreset] = useState<string>('neutral');
+  const [lastSpokenText, setLastSpokenText] = useState<string>('');
 
   // Voice presets with emotion/style parameters
   const voicePresets: Record<string, VoicePreset> = {
@@ -110,13 +111,6 @@ const AdvancedTTS: React.FC<AdvancedTTSProps> = ({
     return () => speechSynthesis.removeEventListener('voiceschanged', loadVoices);
   }, []);
 
-  useEffect(() => {
-    if (autoSpeak && text && text.trim()) {
-      handleSpeak();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, autoSpeak]);
-
   const applyPreset = (presetKey: string) => {
     const preset = voicePresets[presetKey];
     if (preset) {
@@ -127,9 +121,9 @@ const AdvancedTTS: React.FC<AdvancedTTSProps> = ({
     }
   };
 
-  const handleSpeak = () => {
+  const handleSpeak = useCallback(() => {
     if (!text || text.trim() === '') {
-      alert('Please enter some text to speak');
+      console.log('No text to speak');
       return;
     }
 
@@ -175,7 +169,20 @@ const AdvancedTTS: React.FC<AdvancedTTSProps> = ({
     };
 
     speechSynthesis.speak(utterance);
-  };
+  }, [text, selectedVoice, rate, pitch, volume, onSpeakingChange]);
+
+  useEffect(() => {
+    if (autoSpeak && text && text.trim() && text !== lastSpokenText && !isSpeaking) {
+      // Small delay to prevent rapid firing and ensure speech synthesis is ready
+      const timer = setTimeout(() => {
+        console.log('Auto-speaking:', text); // Debug log
+        setLastSpokenText(text);
+        handleSpeak();
+      }, 500); // Increased delay to ensure stability
+      
+      return () => clearTimeout(timer);
+    }
+  }, [text, autoSpeak, lastSpokenText, isSpeaking, handleSpeak]);
 
   const handleStop = () => {
     speechSynthesis.cancel();
