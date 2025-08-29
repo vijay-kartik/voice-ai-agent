@@ -5,16 +5,18 @@ interface SimpleTTSProps {
   text: string;
   autoSpeak?: boolean;
   hideText?: boolean;
+  isMobile?: boolean;
 }
 
 const SimpleTTS: React.FC<SimpleTTSProps> = ({ 
   text, 
   autoSpeak = false,
-  hideText = false
+  hideText = false,
+  isMobile = false
 }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastSpokenText, setLastSpokenText] = useState<string>('');
-
+  const [needsUserInteraction, setNeedsUserInteraction] = useState(isMobile);
   const handleSpeak = useCallback(() => {
     if (!text || text.trim() === '') {
       return;
@@ -33,6 +35,7 @@ const SimpleTTS: React.FC<SimpleTTSProps> = ({
     // Event handlers
     utterance.onstart = () => {
       setIsSpeaking(true);
+      setNeedsUserInteraction(false);
     };
 
     utterance.onend = () => {
@@ -42,22 +45,35 @@ const SimpleTTS: React.FC<SimpleTTSProps> = ({
     utterance.onerror = (error) => {
       console.error('Speech synthesis error:', error);
       setIsSpeaking(false);
+      if (isMobile && error.error === 'not-allowed') {
+        setNeedsUserInteraction(true);
+      }
     };
 
-    speechSynthesis.speak(utterance);
-  }, [text]);
+    try {
+      speechSynthesis.speak(utterance);
+    } catch (error) {
+      console.error('Failed to start speech:', error);
+      if (isMobile) {
+        setNeedsUserInteraction(true);
+      }
+    }
+  }, [text, isMobile]);
 
   useEffect(() => {
+    // On desktop, auto-speak normally. On mobile, only auto-speak after user interaction
     if (autoSpeak && text && text.trim() && text !== lastSpokenText && !isSpeaking) {
-      // Small delay to prevent rapid firing and ensure speech synthesis is ready
-      const timer = setTimeout(() => {
-        setLastSpokenText(text);
-        handleSpeak();
-      }, 500);
-      
-      return () => clearTimeout(timer);
+      if (!isMobile || !needsUserInteraction) {
+        // Small delay to prevent rapid firing and ensure speech synthesis is ready
+        const timer = setTimeout(() => {
+          setLastSpokenText(text);
+          handleSpeak();
+        }, 500);
+        
+        return () => clearTimeout(timer);
+      }
     }
-  }, [text, autoSpeak, lastSpokenText, isSpeaking, handleSpeak]);
+  }, [text, autoSpeak, lastSpokenText, isSpeaking, handleSpeak, isMobile, needsUserInteraction]);
 
   if (!text) {
     return null;
