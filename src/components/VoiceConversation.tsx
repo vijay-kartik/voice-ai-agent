@@ -40,7 +40,7 @@ const VoiceConversation: React.FC = () => {
 
   const handleUserTranscript = async (transcript: string) => {
     if (!transcript.trim()) return;
-    
+
     // Just store the transcript, don't auto-generate response
     // User will click Answer button to get AI response
   };
@@ -122,7 +122,7 @@ const VoiceConversation: React.FC = () => {
           <p className="text-lg text-gray-600">
             Have a natural conversation with AI using your voice
           </p>
-          
+
           {/* Controls */}
           <div className="flex justify-center items-center gap-4 mt-4">
             <label className="flex items-center gap-2">
@@ -134,7 +134,7 @@ const VoiceConversation: React.FC = () => {
               />
               <span className="text-sm text-gray-600">Auto-play AI responses</span>
             </label>
-            
+
             <button
               onClick={clearConversation}
               className="flex items-center gap-2 px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm"
@@ -142,7 +142,7 @@ const VoiceConversation: React.FC = () => {
               <Trash2 className="w-4 h-4" />
               Clear
             </button>
-            
+
             <button
               onClick={exportConversation}
               disabled={messages.length === 0}
@@ -161,14 +161,14 @@ const VoiceConversation: React.FC = () => {
               onTranscriptChange={handleUserTranscript} 
               onAnswerRequest={handleAnswerRequest}
             />
-            
+
             {/* Conversation History */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
               <div className="flex items-center gap-2 mb-4">
                 <MessageSquare className="w-5 h-5 text-blue-500" />
                 <h3 className="text-lg font-semibold text-gray-800">Conversation History</h3>
               </div>
-              
+
               <div className="max-h-96 overflow-y-auto space-y-3">
                 {messages.length === 0 ? (
                   <p className="text-gray-500 italic text-center py-8">
@@ -194,11 +194,11 @@ const VoiceConversation: React.FC = () => {
                           {message.timestamp.toLocaleTimeString()}
                         </span>
                       </div>
-                      
+
                       <p className="text-gray-800 text-sm leading-relaxed">
                         {message.text}
                       </p>
-                      
+
                       {message.voiceStyle && (
                         <span className="inline-block mt-2 px-2 py-1 bg-green-200 text-green-800 text-xs rounded-full">
                           {message.voiceStyle} style
@@ -207,7 +207,7 @@ const VoiceConversation: React.FC = () => {
                     </div>
                   ))
                 )}
-                
+
                 {isProcessing && (
                   <div className="bg-yellow-100 border-l-4 border-yellow-500 mr-4 p-3 rounded-lg">
                     <div className="flex items-center gap-2">
@@ -216,7 +216,7 @@ const VoiceConversation: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
+
                 <div ref={messagesEndRef} />
               </div>
             </div>
@@ -224,8 +224,8 @@ const VoiceConversation: React.FC = () => {
 
           {/* Right Column: AI Voice Response */}
           <div>
-            <AdvancedTTS 
-              text={currentAIResponse} 
+            <AdvancedTTS
+              text={currentAIResponse}
               autoSpeak={autoPlayResponses && currentAIResponse !== ''}
             />
           </div>

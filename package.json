@@ -43,6 +43,11 @@
       "last 1 safari version"
     ]
   },
+  "overrides": {
+    "react-speech-kit": {
+      "react": "$react"
+    }
+  },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",

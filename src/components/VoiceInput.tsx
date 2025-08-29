@@ -14,7 +14,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange, onAnswerReq
   const [interimTranscript, setInterimTranscript] = useState('');
   const [silenceTimer, setSilenceTimer] = useState<NodeJS.Timeout | null>(null);
   const { speak } = useSpeechSynthesis();
-  
+
   const {
     listen,
     listening,
@@ -23,18 +23,18 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange, onAnswerReq
   } = useSpeechRecognition({
     onResult: (result: string) => {
       setTranscript(result);
-      
+
       // Clear any existing silence timer
       if (silenceTimer) {
         clearTimeout(silenceTimer);
         setSilenceTimer(null);
       }
-      
+
       // Start new silence timer - will auto-stop after 3 seconds of silence
       const newTimer = setTimeout(() => {
         handleAutoStop();
       }, 3000); // 3 seconds of silence
-      
+
       setSilenceTimer(newTimer);
     },
     onError: (error: any) => {
@@ -84,10 +84,10 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange, onAnswerReq
     if (supported) {
       setTranscript('');
       setInterimTranscript('');
-      listen({ 
-        continuous: true, 
+      listen({
+        continuous: true,
         interimResults: true,
-        lang: 'en-US' 
+        lang: 'en-US'
       });
       setIsListening(true);
     } else {
@@ -146,8 +146,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange, onAnswerReq
           className={`
             relative w-20 h-20 rounded-full flex items-center justify-center
             transition-all duration-300 transform hover:scale-105
-            ${isListening 
-              ? 'bg-red-500 hover:bg-red-600 shadow-lg shadow-red-200' 
+            ${isListening
+              ? 'bg-red-500 hover:bg-red-600 shadow-lg shadow-red-200'
               : 'bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-200'
             }
             ${isListening ? 'animate-pulse' : ''}
@@ -159,7 +159,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange, onAnswerReq
           ) : (
             <Mic className="w-8 h-8 text-white" />
           )}
-          
+
           {/* Pulsing ring animation when listening */}
           {isListening && (
             <div className="absolute inset-0 rounded-full border-4 border-red-300 animate-ping opacity-75"></div>
@@ -210,7 +210,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange, onAnswerReq
         >
           Clear
         </button>
-        
+
         <button
           onClick={handleSpeak}
           disabled={!transcript}
@@ -219,7 +219,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscriptChange, onAnswerReq
           <Volume2 className="w-4 h-4" />
           Speak
         </button>
-        
+
         <button
           onClick={handleAnswerRequest}
           disabled={!transcript}
