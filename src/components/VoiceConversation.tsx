@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Trash2, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { MessageSquare, X } from 'lucide-react';
 import VoiceInput from './VoiceInput';
-import AdvancedTTS from './AdvancedTTS';
+import SimpleTTS from './SimpleTTS';
 import { responseGenerator } from '../utils/responseGenerator';
 
 interface ConversationMessage {
@@ -9,25 +9,20 @@ interface ConversationMessage {
   type: 'user' | 'ai';
   text: string;
   timestamp: Date;
-  emotion?: string;
-  voiceStyle?: string;
 }
 
 const VoiceConversation: React.FC = () => {
-  const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [currentAIResponse, setCurrentAIResponse] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [autoPlayResponses, setAutoPlayResponses] = useState(true);
   const [lastProcessedInput, setLastProcessedInput] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
+  const [showConversationDialog, setShowConversationDialog] = useState(false);
+  const [currentUserInput, setCurrentUserInput] = useState('');
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const handleUserTranscript = async (transcript: string) => {
+    if (!transcript.trim()) return;
+    setCurrentUserInput(transcript);
   };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   const addMessage = (message: Omit<ConversationMessage, 'id' | 'timestamp'>) => {
     const newMessage: ConversationMessage = {
@@ -38,20 +33,13 @@ const VoiceConversation: React.FC = () => {
     setMessages(prev => [...prev, newMessage]);
   };
 
-  const handleUserTranscript = async (transcript: string) => {
-    if (!transcript.trim()) return;
-
-    // Just store the transcript, don't auto-generate response
-    // User will click Answer button to get AI response
-  };
-
   const handleAnswerRequest = async (transcript: string) => {
     if (!transcript.trim() || isProcessing || transcript === lastProcessedInput) return;
 
     setLastProcessedInput(transcript);
     setIsProcessing(true);
 
-    // Add user message
+    // Add user message to conversation
     addMessage({
       type: 'user',
       text: transcript
@@ -64,124 +52,138 @@ const VoiceConversation: React.FC = () => {
         conversationHistory: messages.map(m => m.text)
       });
 
-      // Add AI message
+      // Add AI response to conversation
       addMessage({
         type: 'ai',
-        text: response.text,
-        emotion: response.emotion,
-        voiceStyle: response.suggestedVoiceStyle
+        text: response.text
       });
 
       setCurrentAIResponse(response.text);
     } catch (error) {
       console.error('Error generating response:', error);
+      const errorMessage = "I'm sorry, I encountered an issue generating a response. Please try again.";
+      
       addMessage({
         type: 'ai',
-        text: "I'm sorry, I encountered an issue generating a response. Please try again.",
-        emotion: 'gentle',
-        voiceStyle: 'gentle'
+        text: errorMessage
       });
-      setCurrentAIResponse("I'm sorry, I encountered an issue generating a response. Please try again.");
+      
+      setCurrentAIResponse(errorMessage);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const clearConversation = () => {
-    setMessages([]);
-    setCurrentAIResponse('');
-    setLastProcessedInput('');
-    setIsProcessing(false);
-  };
-
-  const exportConversation = () => {
-    const conversationText = messages.map(msg => {
-      const timestamp = msg.timestamp.toLocaleTimeString();
-      return `[${timestamp}] ${msg.type.toUpperCase()}: ${msg.text}`;
-    }).join('\n');
-
-    const blob = new Blob([conversationText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `voice-conversation-${new Date().toISOString().split('T')[0]}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-      <div className="container mx-auto max-w-6xl">
-        {/* Header */}
-        <div className="text-center mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto max-w-4xl px-4">
+        {/* Header - Hidden on mobile */}
+        <div className="hidden md:block text-center py-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-4">
-            🎤 Voice AI Conversation
+            🎤 Voice AI Agent
           </h1>
           <p className="text-lg text-gray-600">
-            Have a natural conversation with AI using your voice
+            Speak your question and get an AI response
           </p>
-
-          {/* Controls */}
-          <div className="flex justify-center items-center gap-4 mt-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={autoPlayResponses}
-                onChange={(e) => setAutoPlayResponses(e.target.checked)}
-                className="rounded"
-              />
-              <span className="text-sm text-gray-600">Auto-play AI responses</span>
-            </label>
-
-            <button
-              onClick={clearConversation}
-              className="flex items-center gap-2 px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm"
-            >
-              <Trash2 className="w-4 h-4" />
-              Clear
-            </button>
-
-            <button
-              onClick={exportConversation}
-              disabled={messages.length === 0}
-              className="flex items-center gap-2 px-3 py-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg text-sm"
-            >
-              <Download className="w-4 h-4" />
-              Export
-            </button>
-          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column: Voice Input */}
-          <div className="space-y-6">
-            <VoiceInput 
-              onTranscriptChange={handleUserTranscript} 
-              onAnswerRequest={handleAnswerRequest}
-            />
+        {/* Mobile: Show conversation button at top */}
+        <div className="md:hidden pt-4 pb-2 flex justify-center">
+          <button
+            onClick={() => setShowConversationDialog(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-full shadow-md border border-gray-200 transition-colors"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="text-sm font-medium">View Conversation ({messages.length})</span>
+          </button>
+        </div>
 
-            {/* Conversation History */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <MessageSquare className="w-5 h-5 text-blue-500" />
-                <h3 className="text-lg font-semibold text-gray-800">Conversation History</h3>
-              </div>
+        {/* Desktop: Show conversation button */}
+        <div className="hidden md:block mb-6 flex justify-center">
+          <button
+            onClick={() => setShowConversationDialog(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg shadow-sm border border-gray-200 transition-colors"
+          >
+            <MessageSquare className="w-5 h-5" />
+            <span className="font-medium">View Conversation History ({messages.length})</span>
+          </button>
+        </div>
 
-              <div className="max-h-96 overflow-y-auto space-y-3">
-                {messages.length === 0 ? (
-                  <p className="text-gray-500 italic text-center py-8">
-                    Start a conversation by speaking into the microphone above
-                  </p>
-                ) : (
-                  messages.map((message) => (
+        {/* Voice Input Section */}
+        <div className="py-4 md:py-8">
+          <VoiceInput 
+            onTranscriptChange={handleUserTranscript} 
+            onAnswerRequest={handleAnswerRequest}
+          />
+        </div>
+
+        {/* AI Voice Response Section - Hidden on mobile, only show speaking indicator */}
+        <div className="pb-4 md:pb-8">
+          {currentAIResponse && (
+            <div className="block md:hidden">
+              {/* Mobile: Only show speaking indicator */}
+              <SimpleTTS
+                text={currentAIResponse}
+                autoSpeak={true}
+                hideText={true}
+              />
+            </div>
+          )}
+          
+          {currentAIResponse && (
+            <div className="hidden md:block">
+              {/* Desktop: Show full response */}
+              <SimpleTTS
+                text={currentAIResponse}
+                autoSpeak={true}
+                hideText={false}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Processing Indicator */}
+        {isProcessing && (
+          <div className="mx-4 md:mx-0 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <div className="animate-spin w-5 h-5 border-2 border-yellow-600 border-t-transparent rounded-full"></div>
+              <span className="text-yellow-700 font-medium text-sm md:text-base">AI is processing your request...</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Conversation Dialog */}
+      {showConversationDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+            {/* Dialog Header */}
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800">Conversation History</h2>
+              <button
+                onClick={() => setShowConversationDialog(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Dialog Content */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {messages.length === 0 ? (
+                <p className="text-gray-500 italic text-center py-8">
+                  No conversation yet. Start by speaking into the microphone.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((message) => (
                     <div
                       key={message.id}
                       className={`p-3 rounded-lg ${
                         message.type === 'user'
-                          ? 'bg-blue-100 border-l-4 border-blue-500 ml-4'
-                          : 'bg-green-100 border-l-4 border-green-500 mr-4'
+                          ? 'bg-blue-50 border-l-4 border-blue-500 ml-4'
+                          : 'bg-green-50 border-l-4 border-green-500 mr-4'
                       }`}
                     >
                       <div className="flex justify-between items-start mb-1">
@@ -194,77 +196,27 @@ const VoiceConversation: React.FC = () => {
                           {message.timestamp.toLocaleTimeString()}
                         </span>
                       </div>
-
                       <p className="text-gray-800 text-sm leading-relaxed">
                         {message.text}
                       </p>
-
-                      {message.voiceStyle && (
-                        <span className="inline-block mt-2 px-2 py-1 bg-green-200 text-green-800 text-xs rounded-full">
-                          {message.voiceStyle} style
-                        </span>
-                      )}
                     </div>
-                  ))
-                )}
+                  ))}
+                </div>
+              )}
+            </div>
 
-                {isProcessing && (
-                  <div className="bg-yellow-100 border-l-4 border-yellow-500 mr-4 p-3 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full"></div>
-                      <span className="text-yellow-700 text-sm font-medium">AI is thinking...</span>
-                    </div>
-                  </div>
-                )}
-
-                <div ref={messagesEndRef} />
-              </div>
+            {/* Dialog Footer */}
+            <div className="p-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowConversationDialog(false)}
+                className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
-
-          {/* Right Column: AI Voice Response */}
-          <div>
-            <AdvancedTTS
-              text={currentAIResponse}
-              autoSpeak={autoPlayResponses && currentAIResponse !== ''}
-            />
-          </div>
         </div>
-
-        {/* Fix Alert */}
-        <div className="mt-8 max-w-4xl mx-auto bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-xs">✓</span>
-            </div>
-            <h4 className="font-semibold text-green-800">Enhanced Voice Control!</h4>
-          </div>
-          <p className="text-sm text-green-700">
-            • <strong>Auto-Stop:</strong> Voice input automatically stops after 3 seconds of silence<br/>
-            • <strong>Manual Control:</strong> Click "Answer" button to get AI response when ready<br/>
-            • <strong>Voice Output:</strong> AI responses are automatically spoken aloud
-          </p>
-        </div>
-
-        {/* Instructions */}
-        <div className="mt-4 max-w-4xl mx-auto bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="font-semibold text-blue-800 mb-3">💡 How to Use:</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700">
-            <ul className="space-y-2">
-              <li>• 🎤 Click microphone to start recording</li>
-              <li>• 🗣️ Speak your question or statement</li>
-              <li>• ⏸️ Wait 3 seconds - recording stops automatically</li>
-              <li>• 🤖 Click "Answer" button to get AI response</li>
-            </ul>
-            <ul className="space-y-2">
-              <li>• 🔊 AI will speak the response automatically</li>
-              <li>• ⚙️ Customize voice settings for different styles</li>
-              <li>• 💾 Export your conversation history</li>
-              <li>• 🔄 Use "Clear" to start fresh conversation</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
