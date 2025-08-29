@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageSquare, X } from 'lucide-react';
 import VoiceInput from './VoiceInput';
 import SimpleTTS from './SimpleTTS';
+import ElevenLabsTTS from './ElevenLabsTTS';
 import { responseGenerator } from '../utils/responseGenerator';
 
 interface ConversationMessage {
@@ -18,6 +19,24 @@ const VoiceConversation: React.FC = () => {
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [showConversationDialog, setShowConversationDialog] = useState(false);
   const [currentUserInput, setCurrentUserInput] = useState('');
+  const [ttsError, setTtsError] = useState<string>('');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Get configuration from environment variables
+  const elevenLabsApiKey = process.env.REACT_APP_ELEVENLABS_API_KEY;
+  const useElevenLabs = process.env.REACT_APP_USE_ELEVENLABS !== 'false' && !!elevenLabsApiKey;
+
+  // Hook to detect screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768); // 768px is md breakpoint in Tailwind
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   const handleUserTranscript = async (transcript: string) => {
     if (!transcript.trim()) return;
@@ -34,8 +53,13 @@ const VoiceConversation: React.FC = () => {
   };
 
   const handleAnswerRequest = async (transcript: string) => {
-    if (!transcript.trim() || isProcessing || transcript === lastProcessedInput) return;
+    console.log('handleAnswerRequest called with:', transcript); // Debug log
+    if (!transcript.trim() || isProcessing || transcript === lastProcessedInput) {
+      console.log('Request blocked:', { isEmpty: !transcript.trim(), isProcessing, isDuplicate: transcript === lastProcessedInput });
+      return;
+    }
 
+    console.log('Processing answer request'); // Debug log
     setLastProcessedInput(transcript);
     setIsProcessing(true);
 
@@ -118,30 +142,74 @@ const VoiceConversation: React.FC = () => {
           />
         </div>
 
-        {/* AI Voice Response Section - Hidden on mobile, only show speaking indicator */}
+        {/* AI Voice Response Section - Only render ONE TTS component */}
         <div className="pb-4 md:pb-8">
           {currentAIResponse && (
-            <div className="block md:hidden">
-              {/* Mobile: Only show speaking indicator */}
-              <SimpleTTS
-                text={currentAIResponse}
-                autoSpeak={true}
-                hideText={true}
-              />
-            </div>
-          )}
-          
-          {currentAIResponse && (
-            <div className="hidden md:block">
-              {/* Desktop: Show full response */}
-              <SimpleTTS
-                text={currentAIResponse}
-                autoSpeak={true}
-                hideText={false}
-              />
-            </div>
+            <>
+              {isMobile ? (
+                // Mobile: Only show speaking indicator - TTS with hidden text
+                <div className="block md:hidden">
+                  {useElevenLabs ? (
+                    <ElevenLabsTTS
+                      text={currentAIResponse}
+                      autoSpeak={true}
+                      hideText={true}
+                      apiKey={elevenLabsApiKey}
+                      onError={setTtsError}
+                    />
+                  ) : (
+                    <SimpleTTS
+                      text={currentAIResponse}
+                      autoSpeak={true}
+                      hideText={true}
+                    />
+                  )}
+                </div>
+              ) : (
+                // Desktop: Show full response - TTS with visible text
+                <div className="hidden md:block">
+                  {useElevenLabs ? (
+                    <ElevenLabsTTS
+                      text={currentAIResponse}
+                      autoSpeak={true}
+                      hideText={false}
+                      apiKey={elevenLabsApiKey}
+                      onError={setTtsError}
+                    />
+                  ) : (
+                    <SimpleTTS
+                      text={currentAIResponse}
+                      autoSpeak={true}
+                      hideText={false}
+                    />
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
+
+        {/* TTS Error Display */}
+        {ttsError && (
+          <div className="mx-4 md:mx-0 mb-4 bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <div className="w-5 h-5 text-orange-600 mt-0.5">⚠️</div>
+              <div className="flex-1">
+                <p className="text-orange-800 text-sm font-medium">TTS Notice</p>
+                <p className="text-orange-700 text-sm mt-1">{ttsError}</p>
+                <p className="text-orange-600 text-xs mt-2">
+                  The app will fall back to browser TTS if ElevenLabs is unavailable.
+                </p>
+              </div>
+              <button
+                onClick={() => setTtsError('')}
+                className="text-orange-500 hover:text-orange-700"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Processing Indicator */}
         {isProcessing && (
